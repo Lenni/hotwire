@@ -97,27 +97,3 @@ def PostProcess(path , zerovector, filename="OUTPUT.SRC"):
     f.close()
     
     print("\nSuccess: File Saved as {}".format(filename))
-
-
-#PostProcess("C:\\Users\\JMCrosair\\OneDrive\\70 USP\\code\\outupt_left.csv", np.array([1.176, 0.016, 0.515]), filename="WINGTIP_LEFT.SRC")
-
-
-#np.array([0.1176, 16, 0.515])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
