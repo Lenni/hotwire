@@ -23,7 +23,7 @@ def vec_ang(v1, v2):
     return ang
 
 
-def c_arc_length(f, a, b):
+def arc_length(f, a, b):
     npts = 100
     x = np.linspace(a, b, npts)
     y = f(x)
@@ -31,27 +31,6 @@ def c_arc_length(f, a, b):
     for k in range(1, npts):
         arc = arc + np.sqrt((x[k] - x[k - 1]) ** 2 + (y[k] - y[k - 1]) ** 2)
     return arc
-
-
-def arc_length(f, a, b, tol=1e-6):
-    """Compute the arc length of function f(x) for a <= x <= b. Stop
-    when two consecutive approximations are closer than the value of
-    tol.
-    """
-    nsteps = 1  # number of steps to compute
-    oldlength = 1.0e20
-    length = 1.0e10
-    while abs(oldlength - length) >= tol:
-        nsteps *= 2
-        fx1 = f(a)
-        xdel = (b - a) / nsteps  # space between x-values
-        oldlength = length
-        length = 0
-        for i in range(1, nsteps + 1):
-            fx0 = fx1  # previous function value
-            fx1 = f(a + i * (b - a) / nsteps)  # new function value
-            length += math.hypot(xdel, fx1 - fx0)  # length of small line segment
-    return length
 
 
 def Rz(a):
@@ -108,7 +87,7 @@ def segmenter(segs, profile_len, arc_len, interpol):
 
 def plot_3d(s_segments, l_segments, us_segments, ul_segments, l_profile_len, wingspan, zoomout=False):
     fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    ax = plt.axes(projection='3d')
 
     XX1 = np.append(l_segments[:, 0], s_segments[:, 0])
     YY1 = np.append(l_segments[:, 1], s_segments[:, 1])
@@ -165,7 +144,7 @@ def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=11
     Input data consists of two NumPy arrays containing raw data from both CSV input files
     Input data (which represents a wing profile) should be points on a closed curve
     The closed curve can't be interpoloted using regular linear interpolation functions.
-    Thus the input data is first divided into top a and a bottom line, then cast into two interpolation functions.
+    Thus the input data is first divided into a top and a bottom line, then cast into two interpolation functions.
     Then the interpolated functions (2 times top and bottom equals 4 functions total) are divided into segments of equal arc length
     The arc lengths of the individual segments are proportioned according to the arc length of each interpolated curve
     After the segmentation process you should end up with an equal amount of segments on both top-pairs and bottom-pairs
@@ -218,17 +197,13 @@ def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=11
         plt.plot(big_x, big_y, "ro")
         data_plot = plt.plot(small_x, small_y, "ro")
         plt.gca().set_aspect('equal', adjustable='box')
-        # plt.show()
-
-    if False:
-        # return s_data_plot, b_data_plot
-        return data_plot[0]
+        plt.show()
 
     # calculate circumference and arc_len
-    over_circumf_large = c_arc_length(over_big_interpol, 0, l_profile_len)
-    under_circumf_large = c_arc_length(under_big_interpol, 0, l_profile_len)
-    over_circumf_small = c_arc_length(over_small_interpol, 0, s_profile_len)
-    under_circumf_small = c_arc_length(under_small_interpol, 0, s_profile_len)
+    over_circumf_large = arc_length(over_big_interpol, 0, l_profile_len)
+    under_circumf_large = arc_length(under_big_interpol, 0, l_profile_len)
+    over_circumf_small = arc_length(over_small_interpol, 0, s_profile_len)
+    under_circumf_small = arc_length(under_small_interpol, 0, s_profile_len)
 
     over_large_arc_len = over_circumf_large / segs
     under_large_arc_len = under_circumf_large / segs
@@ -236,7 +211,7 @@ def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=11
     under_small_arc_len = under_circumf_small / segs
 
     # Segmenting
-    print("\nrunning segmenter")
+    print("running segmenter")
 
     # small profile:
     over_s_segments = segmenter(segs, s_profile_len, over_small_arc_len, over_small_interpol)
@@ -365,17 +340,18 @@ def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=11
     plt.plot(np.linspace(0, l_profile_len, 3000), over_big_interpol(np.linspace(0, l_profile_len, 3000)), "b")
     plt.plot(np.linspace(0, l_profile_len, 3000), under_big_interpol(np.linspace(0, l_profile_len, 3000)), "b")
 
-    plt.plot(over_s_segments[:, 0], over_s_segments[:, 1], "b")
-    plt.plot(under_s_segments[:, 0], under_s_segments[:, 1], "b")
+    plt.plot(over_s_segments[:, 0], over_s_segments[:, 1], "r")
+    plt.plot(under_s_segments[:, 0], under_s_segments[:, 1], "r")
 
-    plt.plot(over_l_segments[:, 0], over_l_segments[:, 1], "b")
-    plt.plot(under_l_segments[:, 0], under_l_segments[:, 1], "b")
+    plt.plot(over_l_segments[:, 0], over_l_segments[:, 1], "r")
+    plt.plot(under_l_segments[:, 0], under_l_segments[:, 1], "r")
 
     # add offset data:
-    plt.plot(offset_ols[:, 0], offset_ols[:, 1], "r")
-    plt.plot(offset_uls[:, 0], offset_uls[:, 1], "r")
-    plt.plot(offset_oss[:, 0], offset_oss[:, 1], "r")
-    post_seg_plot = plt.plot(offset_uss[:, 0], offset_uss[:, 1], "r")
+
+    plt.plot(offset_ols[:, 0], offset_ols[:, 1], "g")
+    plt.plot(offset_uls[:, 0], offset_uls[:, 1], "g")
+    plt.plot(offset_oss[:, 0], offset_oss[:, 1], "g")
+    post_seg_plot = plt.plot(offset_uss[:, 0], offset_uss[:, 1], "g")
 
     plt.gca().set_aspect('equal', adjustable='box')
 
