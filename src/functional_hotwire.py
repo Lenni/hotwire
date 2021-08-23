@@ -11,9 +11,11 @@ import matplotlib.pyplot as plt
 import math
 from matplotlib import cm
 from numpy import sin, cos, pi
+import shapely.geometry as shp
 
 
-def point_distance(x1, x2, y1, y2): return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+def point_distance(x1, x2, y1, y2):
+    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
 def vec_ang(v1, v2):
@@ -136,9 +138,30 @@ def data_refiner(datapath):
     return data[:, 0], data[:, 1]
 
 
+def shorten_array(input_arr, target_length):
+    """
+
+    :param input_arr:
+    :param target_length: has to be smaller than the length of the given array
+    :type input_arr: List or Numpy Array
+    :type target_length: int
+    :return: Shortened array with "target_length" elements
+    """
+
+    assert len(input_arr) >= target_length
+
+    array = np.array(input_arr)
+
+    if len(input_arr) != target_length:
+        diff = len(input_arr) - target_length
+        for _ in range(diff):
+            array = np.delete(array, np.random.randint(0, len(array)), axis=0)
+
+    return array
+
 def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=115, twist=0, tool_diameter=1,
             diheral_angle=30,
-            s_profile_len=100, l_profile_len=300, segs=250, retract_path_length=50, mirror=False, loadonly=True):
+            s_profile_len=100, l_profile_len=300, num_segs=250, retract_path_length=50, mirror=False, loadonly=True):
     """
     This function generates a tool path
     Input data consists of two NumPy arrays containing raw data from both CSV input files
@@ -155,9 +178,25 @@ def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=11
         -> the method has a shortcoming on highly irregular contours which cant be cast into a top and bottom function
         -> (i.e. slats, flaps or recurring slots for design purposes)
         -> potential future updates may consist of better interpolation allowing more complex contours
+
+        :type num_segs: int
+        :type big_data: list
+        :type small_data: list
+        :type distance: int
+        :type sweep: int
+        :type dihedral: int
+        :type twist: int
+        :type tool_diameter: int
+        :type diheral_angle: int
+        :type s_profile_len: int
+        :type l_profile_len: int
+        :type retract_path_length: int
+        :type mirror: bool
+        :type loadonly: bool
+        :return:
     """
 
-    segs = int(segs)
+    num_segs = int(num_segs)
 
     big_x, big_y = data_refiner(big_data)
     small_x, small_y = data_refiner(small_data)
@@ -205,120 +244,61 @@ def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=11
     over_circumf_small = arc_length(over_small_interpol, 0, s_profile_len)
     under_circumf_small = arc_length(under_small_interpol, 0, s_profile_len)
 
-    over_large_arc_len = over_circumf_large / segs
-    under_large_arc_len = under_circumf_large / segs
-    over_small_arc_len = over_circumf_small / segs
-    under_small_arc_len = under_circumf_small / segs
+    over_large_arc_len = over_circumf_large / num_segs
+    under_large_arc_len = under_circumf_large / num_segs
+    over_small_arc_len = over_circumf_small / num_segs
+    under_small_arc_len = under_circumf_small / num_segs
 
     # Segmenting
     print("running segmenter")
 
     # small profile:
-    over_s_segments = segmenter(segs, s_profile_len, over_small_arc_len, over_small_interpol)
-    under_s_segments = segmenter(segs, s_profile_len, under_small_arc_len, under_small_interpol)
+    over_s_segments = segmenter(num_segs, s_profile_len, over_small_arc_len, over_small_interpol)
+    under_s_segments = segmenter(num_segs, s_profile_len, under_small_arc_len, under_small_interpol)
 
     # large profile
-    over_l_segments = segmenter(segs, l_profile_len, over_large_arc_len, over_big_interpol)
-    under_l_segments = segmenter(segs, l_profile_len, under_large_arc_len, under_big_interpol)
+    over_l_segments = segmenter(num_segs, l_profile_len, over_large_arc_len, over_big_interpol)
+    under_l_segments = segmenter(num_segs, l_profile_len, under_large_arc_len, under_big_interpol)
 
     # check if segments match up, if necessary: delete a random segment
+    # All 4 arrays have to have the same amount of elements
+
+
     seg_amt_ols = len(over_l_segments)
     seg_amt_uls = len(under_l_segments)
     seg_amt_oss = len(over_s_segments)
     seg_amt_uss = len(under_s_segments)
 
-    diff = 0
-    if seg_amt_ols < seg_amt_oss:
-        diff = seg_amt_oss - seg_amt_ols
-        for _ in range(diff): over_s_segments = np.delete(over_s_segments, np.random.randint(0, len(over_s_segments)),
-                                                          axis=0)
-    if seg_amt_ols > seg_amt_oss:
-        diff = seg_amt_ols - seg_amt_oss
-        for _ in range(diff): over_l_segments = np.delete(over_l_segments, np.random.randint(0, len(over_l_segments)),
-                                                          axis=0)
-    print("diff was {} (= segs killed on ols/oss)".format(diff))
+    min_amt = min(seg_amt_uss, seg_amt_uls, seg_amt_ols, seg_amt_ols)
 
-    if seg_amt_uls < seg_amt_uss:
-        diff = seg_amt_uss - seg_amt_uls
-        for _ in range(diff): under_s_segments = np.delete(under_s_segments,
-                                                           np.random.randint(0, len(under_s_segments)), axis=0)
-    if seg_amt_uls > seg_amt_uss:
-        diff = seg_amt_uls - seg_amt_uss
-        for _ in range(diff): under_l_segments = np.delete(under_l_segments,
-                                                           np.random.randint(0, len(under_l_segments)), axis=0)
-    print("diff was {} (= segs killed on uls/uss)".format(diff))
+    over_l_segments = shorten_array(over_l_segments, min_amt)
+    over_s_segments = shorten_array(over_s_segments, min_amt)
+    under_l_segments = shorten_array(under_l_segments, min_amt)
+    under_s_segments = shorten_array(under_s_segments, min_amt)
 
     print("ols contains {} segments, oss contains {} segments".format(len(over_l_segments), len(over_s_segments)))
     print("uls contains {} segments, uss contains {} segments".format(len(under_l_segments), len(under_s_segments)))
 
     # offset points radially from original curve by tool diameter
-    ddd_plots = []
+    plots = []
     shiny_outputs = []
-    ols = over_l_segments
-    uls = under_l_segments
-    oss = over_s_segments
-    uss = under_s_segments
+
     tr = tool_diameter / 2
 
-    uvss = []
-    for dat in ols, uls, oss, uss:
-        xdat = dat[:, 0]
-        ydat = dat[:, 1]
+    segments = np.array([over_l_segments, under_l_segments, over_s_segments, under_s_segments])
+    old_shape = segments.shape
+    segments = segments.reshape(segments.shape[0]*segments.shape[1], -1)
 
-        if (dat == oss).all() or (dat == ols).all():
-            sign = 1
-        else:
-            sign = -1
+    shape = shp.Polygon(segments)
+    offset_shape = shape.buffer(-tr, segments.shape[0])
+    segments = np.array(shape.exterior)[0:-1, :]
 
-        uvs = []
-        for i in range(len(xdat)):
-            if i == 0: i = 1
-            if i == len(xdat) - 1: i -= 1
+    segments = segments.reshape(old_shape)
 
-            ar = np.array([xdat[i - 1] - xdat[i], ydat[i - 1] - ydat[i]])
-            av = np.array([xdat[i + 1] - xdat[i], ydat[i + 1] - ydat[i]])
-
-            ar = ar / np.linalg.norm(ar)
-            av = av / np.linalg.norm(av)
-
-            ar[0], ar[1] = -ar[1], ar[0]
-            av[0], av[1] = av[1], -av[0]
-
-            uv = -ar - av
-            uv = sign * uv / np.linalg.norm(uv)
-
-            uv = (uv / abs(uv @ av)) * tr
-            uvs.append(uv)
-        uvss.append(uvs)
-    # clean up leading edge data:
-    ar = np.array([uls[1][0] - ols[0][0], uls[1][1] - ols[0][1]])
-    av = np.array([ols[1][0] - ols[0][0], ols[1][1] - ols[0][1]])
-    ar, av = ar / np.linalg.norm(ar), av / np.linalg.norm(av)
-    ar[0], ar[1] = -ar[1], ar[0]
-    av[0], av[1] = av[1], -av[0]
-    uv = -ar - av
-    uv = uv / np.linalg.norm(uv)
-    uv = (uv / abs(uv @ av)) * tr
-    uvss[0][0], uvss[1][0] = uv, uv
-
-    ar = np.array([uss[1][0] - oss[0][0], uss[1][1] - oss[0][1]])
-    av = np.array([oss[1][0] - oss[0][0], oss[1][1] - oss[0][1]])
-    ar, av = ar / np.linalg.norm(ar), av / np.linalg.norm(av)
-    ar[0], ar[1] = -ar[1], ar[0]
-    av[0], av[1] = av[1], -av[0]
-    uv = -ar - av
-    uv = uv / np.linalg.norm(uv)
-    uv = (uv / abs(uv @ av)) * tr
-    uvss[2][0], uvss[3][0] = uv, uv
-
-    for i in range(len(uvss)):
-        uvss[i] = np.array(uvss[i])
-        uvss[i] = np.append(uvss[i], np.zeros([len(uvss[i][:, 0]), 1]), axis=1)
-
-    offset_ols = ols + uvss[0]
-    offset_uls = uls + uvss[1]
-    offset_oss = oss + uvss[2]
-    offset_uss = uss + uvss[3]
+    offset_ols = segments[0]
+    offset_uls = segments[1]
+    offset_oss = segments[2]
+    offset_uss = segments[3]
 
     # apply twist:
     twist *= pi / 180
@@ -406,7 +386,7 @@ def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=11
         plotpostrot = True
         if plotpostrot:
             print("\nshowing 3d plot post rotation:")
-            ddd_plots.append(plot_3d(offset_oss, offset_ols, offset_uss, offset_uls, l_profile_len, distance))
+            plots.append(plot_3d(offset_oss, offset_ols, offset_uss, offset_uls, l_profile_len, distance))
 
         # Add retract path
         rl = retract_path_length
@@ -500,4 +480,4 @@ def hotwire(big_data=None, small_data=None, distance=200, sweep=200, dihedral=11
         # np.savetxt("outupt_{}.csv".format(m), shiny_output, delimiter=";", fmt="%s")
         # print("\nSaved successfully to file named {}!".format("outupt_{}.csv".format(m)))
 
-    return post_seg_plot[0], ddd_plots, shiny_outputs
+    return post_seg_plot[0], plots, shiny_outputs

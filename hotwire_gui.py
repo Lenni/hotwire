@@ -86,9 +86,9 @@ def ddd_graph(ddd_plot, x):
         wingspan = ddd_plot[2][0]
         l_profile_len = ddd_plot[2][1]
 
-        ax.plot_trisurf(ddd_plot[0][0], ddd_plot[0][1], ddd_plot[0][2], linewidth=0.5, antialiased=True, shade=True,
+        ax.plot_trisurf(ddd_plot[0][0], ddd_plot[0][1], ddd_plot[0][2], linewidth=0.5, antialiased=True, shade=False,
                         cmap=cm.coolwarm)
-        ax.plot_trisurf(ddd_plot[1][0], ddd_plot[1][1], ddd_plot[1][2], linewidth=0.5, antialiased=True, shade=True,
+        ax.plot_trisurf(ddd_plot[1][0], ddd_plot[1][1], ddd_plot[1][2], linewidth=0.5, antialiased=True, shade=False,
                         cmap=cm.coolwarm)
 
         ax.set_xlim3d(-10, -l_profile_len)

@@ -8,6 +8,7 @@ scipy = "*"
 numpy = "*"
 pillow = "*"
 matplotlib = "*"
+shapely = "*"
 
 [dev-packages]
 
